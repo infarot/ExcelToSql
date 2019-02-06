@@ -2,6 +2,7 @@ package com.dawid;
 
 import com.dawid.dao.ResultDAOImpl;
 import com.dawid.entity.Result;
+import javassist.bytecode.analysis.Executor;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -43,20 +44,23 @@ public class Main {
         try {
             File source1 = new File(prop.getProperty("firstShiftPath"));
             File dest1 = new File("temp1.xlsm");
+            copyFile(source1, dest1);
+            new Main().addShiftResult(new FileInputStream(dest1));
+            dest1.delete();
+
             File source2 = new File(prop.getProperty("secondShiftPath"));
             File dest2 = new File("temp2.xlsm");
-            copyFile(source1, dest1);
             copyFile(source2, dest2);
-
-            new Main().addShiftResult(new FileInputStream(dest1));
             new Main().addShiftResult(new FileInputStream(dest2));
+            dest2.delete();
 
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private void addShiftResult(FileInputStream file) {
+
+    private synchronized void addShiftResult(FileInputStream file) {
         try {
             Workbook workbook = new XSSFWorkbook(file);
             Sheet sheet = workbook.getSheetAt(workbook.getSheetIndex(prop.getProperty("dataSourceSheet")));
@@ -65,7 +69,7 @@ public class Main {
                 for (Row row : sheet) {
                     resultList.add(new Result(
                             row.getCell(0).getNumericCellValue(),
-                            LocalDate.ofInstant(row.getCell(1).getDateCellValue().toInstant(), ZoneId.systemDefault()).plusDays(1),
+                            row.getCell(1).getDateCellValue().toInstant().atZone(ZoneId.systemDefault()).toLocalDate().plusDays(1),
                             (int) row.getCell(2).getNumericCellValue(),
                             row.getCell(3).getStringCellValue().charAt(0),
                             row.getCell(4).getStringCellValue()));
@@ -73,6 +77,7 @@ public class Main {
                 ResultDAOImpl resultDAO = new ResultDAOImpl();
                 resultList.forEach(resultDAO::saveOrUpdate);
             }
+            file.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
