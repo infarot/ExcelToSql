@@ -12,7 +12,7 @@ import java.util.List;
 
 public class ResultDAOImpl implements ResultDAO {
 
-    private SessionFactory factory = Main.factory;
+    private SessionFactory factory = Main.getFactory();
 
 
     @Override
