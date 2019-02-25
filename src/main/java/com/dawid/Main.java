@@ -1,7 +1,10 @@
 package com.dawid;
 
 import com.dawid.dao.ResultDAOImpl;
+import com.dawid.dao.ShiftProductionDAO;
+import com.dawid.dao.ShiftProductionDAOImpl;
 import com.dawid.entity.Result;
+import com.dawid.entity.ShiftProduction;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -9,10 +12,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Files;
 import java.time.ZoneId;
 import java.util.*;
@@ -35,6 +35,7 @@ public class Main {
             factory = new Configuration()
                     .configure("hibernate.cfg.xml")
                     .addAnnotatedClass(Result.class)
+                    .addAnnotatedClass(ShiftProduction.class)
                     .buildSessionFactory();
             return factory;
         } else {
@@ -44,7 +45,7 @@ public class Main {
 
     public static void main(String[] args) {
 
-        ExecutorService executorService = Executors.newFixedThreadPool(2);
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
 
         try {
             File source1 = new File(prop.getProperty("firstShiftPath"));
@@ -53,9 +54,7 @@ public class Main {
             executorService.submit(() -> {
                 try {
                     System.out.println("first thread!");
-                    Optional<List<Result>> results = calculateShiftResult(new FileInputStream(dest1));
-                    results.ifPresent(Main::saveToDB);
-                    dest1.delete();
+                    getExcelData(dest1);
                 } catch (FileNotFoundException e) {
                     e.printStackTrace();
                 }
@@ -68,9 +67,8 @@ public class Main {
             executorService.submit(() -> {
                 try {
                     System.out.println("second thread!");
-                    Optional<List<Result>> results = calculateShiftResult(new FileInputStream(dest2));
-                    results.ifPresent(Main::saveToDB);
-                    dest2.delete();
+                    getExcelData(dest2);
+
                 } catch (FileNotFoundException e) {
                     e.printStackTrace();
                 }
@@ -81,11 +79,19 @@ public class Main {
         }
     }
 
+    private static void getExcelData(File file) throws FileNotFoundException {
+        Optional<List<Result>> results = calculateShiftResult(new FileInputStream(file));
+        results.ifPresent(Main::saveResultToDB);
+        Optional<List<ShiftProduction>> shiftProductionResults = calculateShiftProduction(new FileInputStream(file));
+        shiftProductionResults.ifPresent(Main::saveProductionToDB);
+        file.delete();
+    }
 
     private static Optional<List<Result>> calculateShiftResult(FileInputStream file) {
         try {
-            Workbook workbook = new XSSFWorkbook(file);
-            Sheet sheet = workbook.getSheetAt(workbook.getSheetIndex(prop.getProperty("dataSourceSheet")));
+            BufferedInputStream reader = new BufferedInputStream(file);
+            Workbook workbook = new XSSFWorkbook(reader);
+            Sheet sheet = workbook.getSheetAt(workbook.getSheetIndex(prop.getProperty("resultDataSourceSheet")));
             List<Result> resultList = new ArrayList<>();
             if (sheet.getLastRowNum() != 0) {
                 for (Row row : sheet) {
@@ -105,10 +111,49 @@ public class Main {
         return Optional.empty();
     }
 
-    private static synchronized void saveToDB(List<Result> list){
+    private static Optional<List<ShiftProduction>> calculateShiftProduction(FileInputStream file) {
+        try {
+            BufferedInputStream reader = new BufferedInputStream(file);
+            Workbook workbook = new XSSFWorkbook(reader);
+            Sheet sheet = workbook.getSheetAt(workbook.getSheetIndex(prop.getProperty("productionDataSourceSheet")));
+            List<ShiftProduction> shiftProductionList = new ArrayList<>();
+            if (sheet.getLastRowNum() != 0) {
+                for (Row row : sheet) {
+                    shiftProductionList.add(new ShiftProduction(
+                            row.getCell(0).getStringCellValue(),
+                            row.getCell(1).getDateCellValue().toInstant().atZone(ZoneId.systemDefault()).toLocalDate().plusDays(1),
+                            row.getCell(2).getStringCellValue().charAt(0),
+                            row.getCell(3).getNumericCellValue(),
+                            row.getCell(4).getNumericCellValue(),
+                            row.getCell(5).getNumericCellValue(),
+                            row.getCell(6).getNumericCellValue(),
+                            row.getCell(8).getNumericCellValue(),
+                            row.getCell(7).getNumericCellValue()));
+                }
+            }
+            return Optional.of(shiftProductionList);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                file.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static synchronized void saveResultToDB(List<Result> list){
         System.out.println("adding to db...");
         ResultDAOImpl resultDAO = new ResultDAOImpl();
         list.forEach(resultDAO::saveOrUpdate);
+    }
+
+    private static synchronized void saveProductionToDB(List<ShiftProduction> list){
+        System.out.println("adding to db...");
+        ShiftProductionDAO shiftProductionDAO = new ShiftProductionDAOImpl();
+        list.forEach(shiftProductionDAO::saveOrUpdate);
     }
 
     private static void copyFile(File source, File dest) throws IOException {

@@ -1,19 +1,18 @@
 package com.dawid.dao;
 
 import com.dawid.Main;
-import com.dawid.entity.Result;
+import com.dawid.entity.ShiftProduction;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 
-public class ResultDAOImpl implements ResultDAO {
-
+public class ShiftProductionDAOImpl implements ShiftProductionDAO {
     private SessionFactory factory = Main.getFactory();
 
     @Override
-    public void saveOrUpdate(Result result) {
+    public void saveOrUpdate(ShiftProduction shiftProduction) {
         Session session = factory.getCurrentSession();
         session.beginTransaction();
-        session.saveOrUpdate(result);
+        session.saveOrUpdate(shiftProduction);
         session.getTransaction().commit();
     }
 }
