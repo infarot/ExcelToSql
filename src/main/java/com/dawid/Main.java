@@ -127,8 +127,8 @@ public class Main {
                             row.getCell(4).getNumericCellValue(),
                             row.getCell(5).getNumericCellValue(),
                             row.getCell(6).getNumericCellValue(),
-                            row.getCell(8).getNumericCellValue(),
-                            row.getCell(7).getNumericCellValue()));
+                            row.getCell(7).getNumericCellValue(),
+                            row.getCell(8).getNumericCellValue()));
                 }
             }
             return Optional.of(shiftProductionList);
