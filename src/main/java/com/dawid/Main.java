@@ -48,32 +48,17 @@ public class Main {
         ExecutorService executorService = Executors.newSingleThreadExecutor();
 
         try {
-            File source1 = new File(prop.getProperty("firstShiftPath"));
+            File source1 = new File(prop.getProperty("excelFilePath"));
             File dest1 = new File("temp1.xlsm");
             copyFile(source1, dest1);
             executorService.submit(() -> {
                 try {
-                    System.out.println("first thread!");
+                    System.out.println("Reading from" + prop.getProperty("excelFilePath"));
                     getExcelData(dest1);
                 } catch (FileNotFoundException e) {
                     e.printStackTrace();
                 }
             });
-
-
-            File source2 = new File(prop.getProperty("secondShiftPath"));
-            File dest2 = new File("temp2.xlsm");
-            copyFile(source2, dest2);
-            executorService.submit(() -> {
-                try {
-                    System.out.println("second thread!");
-                    getExcelData(dest2);
-
-                } catch (FileNotFoundException e) {
-                    e.printStackTrace();
-                }
-            });
-            executorService.shutdown();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -92,7 +77,7 @@ public class Main {
             BufferedInputStream reader = new BufferedInputStream(file);
             Workbook workbook = new XSSFWorkbook(reader);
             Sheet sheet = workbook.getSheetAt(workbook.getSheetIndex(prop.getProperty("resultDataSourceSheet")));
-            List<Result> resultList = new ArrayList<>();
+            List<Result> resultList = new LinkedList<>();
             if (sheet.getLastRowNum() != 0) {
                 for (Row row : sheet) {
                     resultList.add(new Result(
@@ -116,7 +101,7 @@ public class Main {
             BufferedInputStream reader = new BufferedInputStream(file);
             Workbook workbook = new XSSFWorkbook(reader);
             Sheet sheet = workbook.getSheetAt(workbook.getSheetIndex(prop.getProperty("productionDataSourceSheet")));
-            List<ShiftProduction> shiftProductionList = new ArrayList<>();
+            List<ShiftProduction> shiftProductionList = new LinkedList<>();
             if (sheet.getLastRowNum() != 0) {
                 for (Row row : sheet) {
                     shiftProductionList.add(new ShiftProduction(
